@@ -97,5 +97,5 @@ class NFA:
                 gra.edge(stat.label, edg.to_state.label, label=edg.symbol)
 
         gra.format = 'png'
-        gra.render(file_path, view=False)
+        gra.render(file_path, view=False, cleanup=True)
         return gra.source

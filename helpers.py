@@ -1,4 +1,4 @@
-from nfa import NFA, Edge, State
+from nfa import NFA, Edge
 
 EPSILON = 'ε'
 
