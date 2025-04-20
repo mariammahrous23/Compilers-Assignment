@@ -1,5 +1,6 @@
 import string
 
+
 def tokenize(regex):
     tokens = []
     i = 0
@@ -12,9 +13,9 @@ def tokenize(regex):
                 j += 1
             if j == len(regex):
                 raise ValueError("Unclosed character class '['")
-            bracket_token = regex[i:j+1]  # [a-z] style
-            expanded = expand_lists(bracket_token)  # returns something like (a|b|c)
-            tokens.extend(tokenize(expanded))  # recursively tokenize it
+            bracket_token = regex[i:j+1]  
+            expanded = expand_lists(bracket_token)  
+            tokens.extend(tokenize(expanded))  # recursively tokenize the expanded characters
             i = j + 1
         elif char in {'(', ')', '*', '+', '?', '|', '.'}:
             tokens.append(char)
@@ -27,7 +28,6 @@ def tokenize(regex):
     
     return tokens
 
-
 def expand_lists(token):
     allowed_range = set(string.ascii_letters + string.digits)
 
@@ -38,7 +38,7 @@ def expand_lists(token):
     chars = []
     i = 0
     while i < len(content):
-        if i + 2 < len(content) and content[i+1] == '-':
+        if i + 2 < len(content) and content[i+1] == '-':  # handle ranges (e.g., a-z)
             start = content[i]
             end = content[i+2]
             if start in allowed_range and end in allowed_range and ord(start) <= ord(end):
@@ -46,7 +46,7 @@ def expand_lists(token):
                 i += 3
             else:
                 raise ValueError(f"Invalid range '{start}-{end}' in character class")
-        else:
+        else:  # handle individual characters
             if content[i] in allowed_range:
                 chars.append(content[i])
                 i += 1
@@ -55,32 +55,27 @@ def expand_lists(token):
 
     return '(' + '|'.join(sorted(set(chars))) + ')'
 
+def insert_concatenation_operators(tokens):
+    result = []
+    length = len(tokens)
 
-def insert_concatenation_operators(expression):
-    result = []  # To build the resulting expression
-    length = len(expression)
+    for i in range(length - 1):
+        current = tokens[i]
+        next_char = tokens[i + 1]
 
-    for i in range(length - 1):  # Iterate until the second-last character
-        current_char = expression[i]
-        next_char = expression[i + 1]
+        result.append(current)
 
-        result.append(current_char)  # Add the current character to the result
-
-        # Check if concatenation is needed between `current_char` and `next_char`
+        # insert a concatenation operator if the current and next tokens should be concatenated
         if (
-            # Current character: literal, closing parenthesis, asterisk, plus, or question mark
-            (current_char.isalnum() or current_char in [')', '*', '+', '?']) and
-            # Next character: literal, opening parenthesis, or opening square bracket
-            (next_char.isalnum() or next_char in ['(', '['])
+            (current.isalnum() or current in [')', '*', '+', '?', '.']) and
+            (next_char.isalnum() or next_char in ['(', '[', '.'])
         ):
-            result.append('.')  # Insert concatenation operator (e.g., '#')
+            result.append('#')
 
-    # Add the last character (not covered in the loop)
     if length > 0:
-        result.append(expression[-1])
+        result.append(tokens[-1])
 
-    return ''.join(result)
-
+    return result
 
 EPSILON = 'ε'
 
@@ -92,41 +87,35 @@ def infix_to_postfix(tokens):
         '*': 5,
         '+': 4,
         '?': 3,
-        '.': 2,  # Concatenation
-        '|': 1   # Alternation
+        '#': 2,
+        '|': 1
     }
     
     output = []
     operators = []
-    
-    # Insert explicit concatenation operator for adjacent operands
+
     for i in range(1, len(tokens)):
         if tokens[i-1] not in precedence and tokens[i] not in precedence and tokens[i-1] != '(' and tokens[i] != ')':
-            tokens.insert(i, '.')
+            tokens.insert(i, '#')
 
     for token in tokens:
-        if token.isalnum():  # Operand (literal, character class, etc.)
+        if token.isalnum() or token == '.':
             output.append(token)
-        
-        elif token == '(':  # Left parenthesis
+        elif token == '(':
             operators.append(token)
-        
-        elif token == ')':  # Right parenthesis
+        elif token == ')':
             while operators and operators[-1] != '(':
                 output.append(operators.pop())
             if not operators:
                 raise ValueError("Mismatched parentheses")
             operators.pop()
-        
-        elif token == '*':  # Handle '*' (Kleene star)
-            output.append(token)  # Add '*' to output, it applies to the previous element
-        
-        elif token in precedence:  # Operator
+        elif token == '*':
+            output.append(token)
+        elif token in precedence:
             while operators and operators[-1] != '(' and precedence[token] <= precedence.get(operators[-1], 0):
                 output.append(operators.pop())
             operators.append(token)
-    
-    # Pop all remaining operators in the stack
+
     while operators:
         if operators[-1] == '(' or operators[-1] == ')':
             raise ValueError("Mismatched parentheses")
@@ -135,13 +124,7 @@ def infix_to_postfix(tokens):
     return output
 
 def preprocessing(regex):
-    # Tokenize the regex
     tokens = tokenize(regex)
-    
-    # Insert concatenation operators
     tokens_with_concatenation = insert_concatenation_operators(tokens)
-    
-    # Convert to postfix notation
     postfix_tokens = infix_to_postfix(tokens_with_concatenation)
-    
     return postfix_tokens
