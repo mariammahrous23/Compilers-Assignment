@@ -30,7 +30,7 @@ class NFAConstructor:
                 nfa = self.construct_nfa_for_literal(token)
                 stack.append(nfa)
             elif token == '.':
-                nfa = self.construct_nfa_for_literal("Any")
+                nfa = self.construct_nfa_for_literal(".")
                 stack.append(nfa)
             elif token == '#':
                 if len(stack) < 2:
