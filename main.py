@@ -1,29 +1,42 @@
 from nfa_constructor import NFAConstructor
+from nfa_to_dfa import read_nfa, nfa_to_dfa, minimize_dfa, draw_dfa, write_dfa
 import os
 
-def generate_nfa_from_regex(regex, visualization_file, json_file, output_folder="output"):
-    # Make output folder if it doesn't exist to store the png and json files
+def generate_nfa_and_convert_to_dfa(regex, idx, output_folder="output"):
+    # Prepare paths
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
 
-    # Construct the NFA from the regex
     constructor = NFAConstructor()
     nfa = constructor.construct_nfa(regex)
     nfa.sort_and_rename_states()
 
-    #Get the paths of the visualization and json files
-    visualization_file_path = os.path.join(output_folder, visualization_file)
-    json_file_path = os.path.join(output_folder, json_file)
+    # File paths
+    nfa_png = os.path.join(output_folder, f"nfa_visualization_{idx}")
+    nfa_json = os.path.join(output_folder, f"nfa_{idx}.json")
+    dfa_json = os.path.join(output_folder, f"dfa_{idx}.json")
+    dfa_png = os.path.join(output_folder, f"dfa_visualization_{idx}")
 
-    # Visualize the NFA and export to JSON
-    nfa.visualize(visualization_file_path)
-    nfa.export_to_json(json_file_path)
-    
-    print(f"NFA constructed for regex: {regex}")
-    print(f"NFA visualization saved as {visualization_file_path}")
-    print(f"NFA exported to {json_file_path}")
+    # Save NFA
+    nfa.visualize(nfa_png)
+    nfa.export_to_json(nfa_json)
 
-#Test cases
+    # Convert to DFA and minimize
+    start, nfa_dict = read_nfa(nfa_json)
+    dfa_start, dfa = nfa_to_dfa(start, nfa_dict)
+    min_start, min_dfa = minimize_dfa(dfa_start, dfa)
+
+    # Save Minimized DFA
+    draw_dfa(min_start, min_dfa, filename=dfa_png)
+    write_dfa(dfa_json, min_start, min_dfa)
+
+    print(f"[✓] Regex: {regex}")
+    print(f"    NFA saved as JSON: {nfa_json}")
+    print(f"    NFA visualized: {nfa_png}.png")
+    print(f"    DFA saved as JSON: {dfa_json}")
+    print(f"    DFA visualized: {dfa_png}.png")
+
+# Test regexes
 regexes = [
     "(a|b)*abb",
     "ab*c+",
@@ -38,9 +51,6 @@ regexes = [
     "(a|.)*",            
 ]
 
-# Run the test cases
+# Run pipeline
 for idx, regex in enumerate(regexes, 1):
-    visualization_file = f"nfa_visualization_{idx}"
-    json_file = f"nfa_{idx}.json"
-    print(f"\nTesting Regex {idx}: {regex}")
-    generate_nfa_from_regex(regex, visualization_file, json_file, output_folder="output")
+    generate_nfa_and_convert_to_dfa(regex, idx)
