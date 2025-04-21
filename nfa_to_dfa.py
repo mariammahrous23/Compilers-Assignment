@@ -131,7 +131,7 @@ def draw_dfa(start, dfa, filename="dfa_graph"):
                 continue
             dot.edge(state, target, label=symbol)
 
-    dot.render(filename, view=False)
+    dot.render(filename, view=False, cleanup=True)
 
 def write_dfa(filename, start, dfa):
     out = {"startingState": start}
