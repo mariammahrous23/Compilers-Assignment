@@ -36,20 +36,13 @@ def generate_nfa_and_convert_to_dfa(regex, idx, output_folder="output"):
     print(f"    DFA saved as JSON: {dfa_json}")
     print(f"    DFA visualized: {dfa_png}.png")
 
-# Test regexes
-regexes = [
-    "(a|b)*abb",
-    "ab*c+",
-    "(a|b)(c|d)*e",
-    "a(b|c)*d",
-    "a*b*",
-    "ab(c|d)*ef",
-    "(a|b|c|d|e)*abc",
-    "((ab|cd)*)*",
-    "[a-cA-C0-3]+",               
-    "a.?b",              
-    "(a|.)*",            
-]
+def load_regexes_from_file(filename="input.txt"):
+    with open(filename, "r") as file:
+        regexes = [line.strip() for line in file if line.strip()]
+    return regexes
+
+# Load test cases from input.txt
+regexes = load_regexes_from_file()
 
 # Run pipeline
 for idx, regex in enumerate(regexes, 1):

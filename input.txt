@@ -1,0 +1,11 @@
+(a|b)*abb
+ab*c+
+(a|b)(c|d)*e
+a(b|c)*d
+a*b*
+ab(c|d)*ef
+(a|b|c|d|e)*abc
+((ab|cd)*)*
+[a-cA-C0-3]+
+a.?b
+(a|.)*
