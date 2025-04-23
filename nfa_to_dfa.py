@@ -98,43 +98,50 @@ def minimize_dfa(start, dfa):
     while changed:
         changed = False
         new_partitions = []
-
         for group in partitions:
             split_map = defaultdict(set)
+            '''
+            {
+                (('0', 0), ('1', 1)): {'C', 'D'},
+                (('0', 1), ('1', 1)): {'E'}
+            }
+            the map can look like this
+            the key is the transitions and value is states that have same transitions
+            '''
             for state in group:
-                key_parts = []  # temporary list to hold (symbol, group_index) pairs
+                key_parts = []  # temporary list to hold (symbol on arrow, group_index) pairs
                 for symbol in dfa[state]:
                     if symbol != "isTerminatingState":
-                        target_state = dfa[state].get(symbol)  # the state that `state` transitions to on this symbol
-                        group_index = get_group(target_state)  # the group index that target_state belongs to
+                        destination_state = dfa[state].get(symbol)  # the state that `state` transitions to on this symbol
+                        group_index = get_group(destination_state)  # the group index that destination_state belongs to
                         key_parts.append((symbol, group_index))  # append the pair to the list
                 key = tuple(key_parts)  # convert list to tuple
                 split_map[key].add(state)
-            new_partitions.extend(split_map.values())
+            new_partitions.extend(split_map.values()) # add the new added partitions
             if len(split_map) > 1:
                 changed = True
 
         partitions = new_partitions
 
-    state_map = {}
+    state_map = {} # Give names to groups
     for i, group in enumerate(partitions):
-        name = f"M{i}"
+        name = f"G{i}"
         for state in group:
             state_map[state] = name
 
     minimized_dfa = {}
     for group in partitions:
-        rep = next(iter(group))
+        rep = next(iter(group)) # first element
         name = state_map[rep]
         minimized_dfa[name] = {
             "isTerminatingState": dfa[rep]["isTerminatingState"]
-        }
+        } # set isTerminatingState by that of the dfa[rep]'s
         for symbol in dfa[rep]:
             if symbol == "isTerminatingState":
                 continue
-            minimized_dfa[name][symbol] = state_map[dfa[rep][symbol]]
+            minimized_dfa[name][symbol] = state_map[dfa[rep][symbol]]  # set transitions by that of the group
 
-    minimized_start = state_map["_".join(sorted(start))]
+    minimized_start = state_map["_".join(sorted(start))] # finding equivalent name to e.g. 2_4_5_7
     return minimized_start, minimized_dfa
 
 def draw_dfa(start, dfa, filename="dfa_graph"):
