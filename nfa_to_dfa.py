@@ -3,52 +3,65 @@ from collections import defaultdict, deque
 import graphviz
 
 def read_nfa(filename):
-    with open(filename) as f:
-        data = json.load(f)
-    start_state = data["startingState"]
+    with open(filename) as file:
+        states_data = json.load(file)
+    start_state = states_data["startingState"]
     states = {}
-    for k, v in data.items():
-        if k != "startingState":
-            states[k] = v
+    for index, state in states_data.items():
+        if index != "startingState":
+            states[index] = state
     return start_state, states
 
-def epsilon_closure(nfa, states):
-    stack = list(states)
-    closure = set(states)
-
-    while stack:
-        state = stack.pop()
-        if "ε" in nfa[state]:
-            targets = nfa[state]["ε"]
-            if isinstance(targets, str):
+def epsilon_closure(nfa, state):
+    stack = list(state)
+    closure = set(state)
+    while stack: #loop until emptying the stack
+        state_in_test = stack.pop()
+        if "ε" in nfa[state_in_test]:            #if exists ε transition
+            targets = nfa[state_in_test]["ε"]    #states reachable via ε
+            if isinstance(targets, str): #if one item, wrap it for iteration
                 targets = [targets]
             for t in targets:
                 if t not in closure:
                     closure.add(t)
-                    stack.append(t)
+                    stack.append(t) #examine for further states
     return closure
 
 def nfa_to_dfa(start_state, nfa):
-    alphabet = {symbol for state in nfa.values() for symbol in state if symbol not in {"isTerminatingState", "ε"}}
-    dfa = {}
+    # Extract input symbols
+    input_symbols = set()
+    for state in nfa.values():                # Loop over each state's dictionary
+        for symbol in state:                  # Loop over the keys in that state's transitions
+            if symbol not in {"isTerminatingState", "ε"}:
+                input_symbols.add(symbol)   
 
-    dfa_start = frozenset(epsilon_closure(nfa, [start_state]))
+    dfa = {}
+    dfa_start = frozenset(epsilon_closure(nfa, [start_state])) # All states that can be accessed by epsilon from start state
     queue = deque([dfa_start])
     visited = set()
 
     while queue:
+        # mark the visisted state
         current = queue.popleft()
         if current in visited:
             continue
         visited.add(current)
 
-        state_name = "_".join(sorted(current))
-        dfa[state_name] = {"isTerminatingState": any(nfa[s]["isTerminatingState"] for s in current)}
+        state_name = "_".join(sorted(current)) #readable state name e.g. 2_4_5_7
 
-        for symbol in alphabet:
+        # mark the state as isTerminatingState if so
+        is_terminating = False
+        for s in current:
+            if nfa[s]["isTerminatingState"]:
+                is_terminating = True
+                break  # No need to check further — one terminating NFA state is enough
+        dfa[state_name] = {"isTerminatingState": is_terminating}
+
+        # Gather all states reachable by a symbol e.g. (a, b, .) from current state
+        for symbol in input_symbols:
             next_states = set()
             for s in current:
-                if symbol in nfa[s]:
+                if symbol in nfa[s]: # If s has a transition on symbol, add the target(s) to next_states
                     targets = nfa[s][symbol]
                     if isinstance(targets, str):
                         targets = [targets]
@@ -57,21 +70,25 @@ def nfa_to_dfa(start_state, nfa):
             if next_states:
                 closure = epsilon_closure(nfa, next_states)
                 next_state_name = "_".join(sorted(closure))
-                dfa[state_name][symbol] = next_state_name
+                dfa[state_name][symbol] = next_state_name # update the transition
 
-                frozen_closure = frozenset(closure)
-                if frozen_closure not in visited:
+                frozen_closure = frozenset(closure) # frozen set to use as dictionary keys
+                if frozen_closure not in visited: # if new state
                     queue.append(frozen_closure)
 
     return dfa_start, dfa
 
 def minimize_dfa(start, dfa):
-    final_states = {s for s, props in dfa.items() if props["isTerminatingState"]}
+    final_states = set()
+    for state_name, props in dfa.items():
+        if props["isTerminatingState"]:
+            final_states.add(state_name)
+
     non_final_states = set(dfa.keys()) - final_states
     partitions = [final_states, non_final_states]
     new_partitions = []
 
-    def get_group(state):
+    def get_group(state): # Returns the index of the partition that a state belongs to
         for i, group in enumerate(partitions):
             if state in group:
                 return i
@@ -85,7 +102,13 @@ def minimize_dfa(start, dfa):
         for group in partitions:
             split_map = defaultdict(set)
             for state in group:
-                key = tuple((symbol, get_group(dfa[state].get(symbol))) for symbol in dfa[state] if symbol != "isTerminatingState")
+                key_parts = []  # temporary list to hold (symbol, group_index) pairs
+                for symbol in dfa[state]:
+                    if symbol != "isTerminatingState":
+                        target_state = dfa[state].get(symbol)  # the state that `state` transitions to on this symbol
+                        group_index = get_group(target_state)  # the group index that target_state belongs to
+                        key_parts.append((symbol, group_index))  # append the pair to the list
+                key = tuple(key_parts)  # convert list to tuple
                 split_map[key].add(state)
             new_partitions.extend(split_map.values())
             if len(split_map) > 1:
@@ -138,13 +161,3 @@ def write_dfa(filename, start, dfa):
     out.update(dfa)
     with open(filename, "w") as f:
         json.dump(out, f, indent=2)
-
-def main():
-    start, nfa = read_nfa("nfa.json")
-    dfa_start, dfa = nfa_to_dfa(start, nfa)
-    min_start, min_dfa = minimize_dfa(dfa_start, dfa)
-    write_dfa("minimized_dfa.json", min_start, min_dfa)
-    draw_dfa(min_start, min_dfa)
-
-if __name__ == "__main__":
-    main()
